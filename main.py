@@ -1,8 +1,8 @@
 from deepgram import Deepgram
 import json
 import asyncio
-from elevenlabs import generate, play
-from flask import Flask, request, session, redirect, url_for
+from elevenlabs import generate, play, save, set_api_key
+from flask import Flask, request, session, redirect, url_for, send_file
 from flask_session import Session
 import os
 from twilio.twiml.voice_response import Gather, VoiceResponse
@@ -12,6 +12,8 @@ import json
 from bot import Bot
 import requests
 from dotenv import load_dotenv
+import io
+from pydub import AudioSegment
 
 load_dotenv()
 
@@ -21,6 +23,7 @@ PATH_TO_FILE = 'male.wav'
 account_sid = os.getenv("ACCOUNT_SID")
 auth_token = os.getenv("AUTH_TOKEN")
 openai.api_key = os.getenv("OPENAI_API_KEY")
+set_api_key(os.getenv("ELEVEN_LABS"))
 
 client = Client(account_sid, auth_token)
 
@@ -37,8 +40,8 @@ def transcribe_audio(file_path):
     return transcript["text"]
 
 
-async def main():
-    deepgram = Deepgram("66288a8974d32bb6254b6b753410422c8759b1c3")
+# async def main():
+    # deepgram = Deepgram("66288a8974d32bb6254b6b753410422c8759b1c3")
     # Open the audio file
     # with open(PATH_TO_FILE, 'rb') as audio:
     #     # ...or replace mimetype as appropriate
@@ -46,24 +49,15 @@ async def main():
     #     response = deepgram.transcription.sync_prerecorded(source, {'punctuate': True})
     #     print(json.dumps(response, indent=4))
     # play(audio)
-    text = transcribe_audio("male.wav")
-    print(text)
-
 
 def gather_speech(prompt, session_key, next_action, speechTimeout="auto"):
+    generate_audio(prompt)
     response = VoiceResponse()
-    response.say(prompt)
+    # response.say(prompt)
+    response.play("https://bfa506899fca.ngrok.app/audio")
     gather = Gather(input='speech', action=next_action,
                     speechTimeout=speechTimeout, speechModel="phone_call")
     response.append(gather)
-    # response.record(maxLength="2")
-    # recording_url = request.values.get("RecordingUrl", None)
-    # audio_path = "curr_recording.wav"
-    # audio_content = requests.get(f"{recording_url}.wav").content
-    # with open(audio_path, "wb") as f:
-    #     f.write(audio_content)
-    # transcript = transcribe_audio(audio_path)
-    # print("Transcript:", transcript)
     if next_action:
         response.redirect(next_action)
     return str(response)
@@ -71,7 +65,8 @@ def gather_speech(prompt, session_key, next_action, speechTimeout="auto"):
 
 def speech_response(text, next_action=None):
     response = VoiceResponse()
-    response.say(text)
+    generate_audio(text)
+    response.play("https://bfa506899fca.ngrok.app/audio")
     if next_action:
         response.redirect(next_action)
     return str(response)
@@ -97,6 +92,18 @@ def find_provider(caller_response):
     else:
         selected_provider = providers_data[provider_idx-1]
         return selected_provider
+
+
+def generate_audio(prompt):
+    audio = generate(
+        text=prompt,
+        voice="Bella",
+        model="eleven_monolingual_v1"
+    )
+    save(audio, 'test.wav')
+    audio = AudioSegment.from_file("test.wav")
+    audio = audio.set_frame_rate(8000)
+    audio.export("converted.wav", format="wav")
 
 
 @app.route("/start_call", methods=['GET', 'POST'])
@@ -137,11 +144,9 @@ def collect_complaint():
     complaint = request.form.get("SpeechResult")
     print(complaint)
     session['complaint'] = complaint
-    return gather_speech(
+    return speech_response(
         "Thank you for sharing that information. Now let me provide you with some available providers and times.",
-        None,
-        "/offer_providers",
-        speechTimeout="1"
+        "/offer_providers"
     )
 
 
@@ -184,6 +189,11 @@ def finalize_appointment():
         return speech_response("Sorry, I didn't get that. Please try again.", "/offer_providers")
 
 
+@app.route("/audio", methods=['GET'])
+def audio():
+    return send_file("converted.wav", mimetype="audio/wav")
+
+
 def test_best_match():
     provider = find_provider("Market research")
     print(provider)
@@ -191,4 +201,4 @@ def test_best_match():
 
 if __name__ == "__main__":
     app.run(debug=True)
-    # asyncio.run(test_best_match())
+    # asyncio.run(main())
