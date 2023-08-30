@@ -1,8 +1,8 @@
-# Doctor's AI Assistant
+# Doctor AI Appointment
 
 ## Project Overview
 
-The Doctor's AI Assistant is a Flask-based application that integrates with the Twilio API for voice-enabled operations and the OpenAI API for natural language processing. It allows patients to schedule an appointment with a healthcare provider using voice commands. The system also sends SMS confirmations to the patients.
+The Doctor AI Appointment is a Flask-based application that integrates with the Twilio API for voice-enabled operations and the OpenAI API for natural language processing. It allows patients to schedule an appointment with a healthcare provider using voice commands. The system also sends SMS confirmations to the patients.
 
 ## Features
 
@@ -32,7 +32,7 @@ You'll also need:
 1. Clone the repository.
 
    ```
-   git clone https://github.com/swapp1990/doctors-ai-assistant.git
+   git clone https://github.com/swapp1990/doctor-ai-appointment.git
    ```
 
 2. Navigate to the project directory.
