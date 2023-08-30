@@ -1,4 +1,3 @@
-from deepgram import Deepgram
 import json
 import asyncio
 from elevenlabs import generate, play, save, set_api_key
@@ -17,12 +16,11 @@ from pydub import AudioSegment
 
 load_dotenv()
 
-DEEPGRAM_API_KEY = 'YOUR_API_KEY'
-PATH_TO_FILE = 'male.wav'
-
 account_sid = os.getenv("ACCOUNT_SID")
 auth_token = os.getenv("AUTH_TOKEN")
 openai.api_key = os.getenv("OPENAI_API_KEY")
+ngrok_url = os.getenv("NGROK_URL")
+twilio_phone_number = os.getenv("TWILIO_PHONE_NUMBER")
 set_api_key(os.getenv("ELEVEN_LABS"))
 
 client = Client(account_sid, auth_token)
@@ -40,21 +38,11 @@ def transcribe_audio(file_path):
     return transcript["text"]
 
 
-# async def main():
-    # deepgram = Deepgram("66288a8974d32bb6254b6b753410422c8759b1c3")
-    # Open the audio file
-    # with open(PATH_TO_FILE, 'rb') as audio:
-    #     # ...or replace mimetype as appropriate
-    #     source = {'buffer': audio, 'mimetype': 'audio/wav'}
-    #     response = deepgram.transcription.sync_prerecorded(source, {'punctuate': True})
-    #     print(json.dumps(response, indent=4))
-    # play(audio)
-
 def gather_speech(prompt, session_key, next_action, speechTimeout="auto"):
     generate_audio(prompt)
     response = VoiceResponse()
     # response.say(prompt)
-    response.play("https://bfa506899fca.ngrok.app/audio")
+    response.play(f"{ngrok_url}/audio")
     gather = Gather(input='speech', action=next_action,
                     speechTimeout=speechTimeout, speechModel="phone_call")
     response.append(gather)
@@ -66,14 +54,14 @@ def gather_speech(prompt, session_key, next_action, speechTimeout="auto"):
 def speech_response(text, next_action=None):
     response = VoiceResponse()
     generate_audio(text)
-    response.play("https://bfa506899fca.ngrok.app/audio")
+    response.play(f"{ngrok_url}/audio")
     if next_action:
         response.redirect(next_action)
     return str(response)
 
 
 def send_sms(msg_body):
-    from_number = '+18883395972'
+    from_number = twilio_phone_number
     to_number = request.form.get('From')
     message = client.messages.create(
         body=msg_body,
@@ -100,10 +88,10 @@ def generate_audio(prompt):
         voice="Bella",
         model="eleven_monolingual_v1"
     )
-    save(audio, 'test.wav')
-    audio = AudioSegment.from_file("test.wav")
+    save(audio, 'generated.wav')
+    audio = AudioSegment.from_file("generated.wav")
     audio = audio.set_frame_rate(8000)
-    audio.export("converted.wav", format="wav")
+    audio.export("generated.wav", format="wav")
 
 
 @app.route("/start_call", methods=['GET', 'POST'])
@@ -152,7 +140,6 @@ def collect_complaint():
 
 @app.route("/offer_providers", methods=['POST'])
 def offer_providers():
-    # Fake data for demonstration purposes
     options = ", ".join(
         [f"{provider['name']} at {provider['time']}" for provider in providers_data]
     )
@@ -180,18 +167,20 @@ def finalize_appointment():
         msg_body = f"Hi {session['name']}, your appointment with {selected_provider['name']} at {selected_provider['time']} has been confirmed. The address is {selected_provider['address']}."
         speech_resp = "Thank you for providing your details. You will receive a confirmation message shortly."
         send_sms(msg_body)
-        # Log the session data to a JSON file
-        with open("session_log.json", "a") as f:  # "a" means append mode
-            json.dump(session, f)
-            f.write("\n")
-        return speech_response(speech_resp)
+        # Log the session data to a JSON file arrray
+        with open("sessions.json", "r") as f:
+            sessions = json.load(f)
+            sessions.append(session)
+            with open("sessions.json", "w") as f:
+                json.dump(sessions, f)
+                return speech_response(speech_resp)
     else:
         return speech_response("Sorry, I didn't get that. Please try again.", "/offer_providers")
 
 
 @app.route("/audio", methods=['GET'])
 def audio():
-    return send_file("converted.wav", mimetype="audio/wav")
+    return send_file("generated.wav", mimetype="audio/wav")
 
 
 def test_best_match():
