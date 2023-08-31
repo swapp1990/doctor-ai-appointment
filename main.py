@@ -44,7 +44,7 @@ def gather_speech(prompt, session_key, next_action, speechTimeout="auto"):
     # response.say(prompt)
     response.play(f"{ngrok_url}/audio")
     gather = Gather(input='speech', action=next_action,
-                    speechTimeout=speechTimeout, speechModel="phone_call")
+                    speechTimeout=speechTimeout, speechModel="experimental_conversations")
     response.append(gather)
     if next_action:
         response.redirect(next_action)
@@ -97,7 +97,7 @@ def generate_audio(prompt):
 @app.route("/start_call", methods=['GET', 'POST'])
 def start_call():
     return gather_speech(
-        "Hi, I'm Ruby the AI! Please say your name.",
+        "Hi, I'm Ruby the AI! I can help you with booking a doctor at our facility! Please say your name.",
         "name",
         "/collect_name"
     )
